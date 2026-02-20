@@ -1,0 +1,13 @@
+# 启用图片缓存
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+</IfModule>
+
+# 禁止直接访问PHP文件（除了index.php和cache.php）
+<FilesMatch "^(?!index|cache).*\.php$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
