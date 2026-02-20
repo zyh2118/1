@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>安生举图 1-209 · 完整显示</title>
+    <title>安生 1-209 · 快速加载</title>
     <style>
-        /* 极简重置 */
         * {
             margin: 0;
             padding: 0;
@@ -18,124 +17,158 @@
             padding: 20px;
         }
 
-        /* 网格布局：每行尽可能多，最小180px（稍微调大一点让图片更舒服） */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 20px;
-            max-width: 1800px;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 15px;
+            max-width: 2000px;
             margin: 0 auto;
         }
 
-        /* 卡片：纯白背景，细边框 */
         .card {
             background: white;
             border-radius: 6px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #eaeaea;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            border: 1px solid #eee;
             aspect-ratio: 1 / 1;
             position: relative;
-            transition: box-shadow 0.2s;
         }
 
-        .card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            border-color: #ccc;
-        }
-
-        /* 图片完全显示，不留白边裁剪 */
         .card img {
             width: 100%;
             height: 100%;
-            object-fit: contain;  /* 关键修改：contain 保证完整显示 */
+            object-fit: contain;
             display: block;
-            background: #fafafa;  /* 极浅灰背景，让有留白的图片看起来柔和 */
-            padding: 4px;         /* 稍微内缩一点，避免图片贴边 */
+            background: #f8f8f8;
+            padding: 4px;
+            opacity: 0;  /* 初始透明，加载后渐显 */
+            transition: opacity 0.2s;
         }
 
-        /* 序号：黑底半透明，圆角矩形，放在图片上方（不遮挡主体） */
+        .card img.loaded {
+            opacity: 1;  /* 加载完成后显示 */
+        }
+
         .index {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 8px;
+            left: 8px;
             background: rgba(0, 0, 0, 0.5);
             color: white;
-            padding: 4px 10px;
-            border-radius: 20px;   /* 圆角标签 */
-            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 16px;
+            font-size: 11px;
             font-weight: 500;
             backdrop-filter: blur(2px);
-            border: 1px solid rgba(255,255,255,0.2);
             z-index: 2;
-            line-height: 1.2;
-            letter-spacing: 0.3px;
         }
 
-        /* 页面标题 - 极小化，不占空间 */
         .page-title {
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             font-size: 14px;
-            color: #888;
-            font-weight: 400;
-            letter-spacing: 1px;
-            border-bottom: 1px solid #e0e0e0;
-            padding-bottom: 15px;
+            color: #666;
         }
 
-        /* 移动端适配 */
+        /* 加载进度提示 - 极小化 */
+        .loading-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+        }
+
         @media  {
-            body { padding: 12px; }
-            .grid { gap: 12px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-            .index { font-size: 11px; padding: 3px 8px; top: 6px; left: 6px; }
-            .card img { padding: 2px; }
+            body { padding: 10px; }
+            .grid { gap: 8px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
         }
     </style>
 </head>
 <body>
-    <!-- 极简标题 -->
-    <div class="page-title">安生 · 1 → 209 · 完整显示</div>
-
-    <div class="grid" id="gallery">
-        <!-- 所有图片由JavaScript生成 -->
-    </div>
+    <div class="page-title">安生 · 1 → 209</div>
+    <div class="grid" id="gallery"></div>
+    <div id="loadingStatus" class="loading-status">加载中... 0/209</div>
 
     <script>
         (function() {
             const gallery = document.getElementById('gallery');
-            const TOTAL = 209; // 从1到209
+            const statusDiv = document.getElementById('loadingStatus');
+            const TOTAL = 209;
             
-            // 清空并一次性生成所有图片
-            gallery.innerHTML = '';
+            let loadedCount = 0;
             
+            // 先创建所有卡片容器
             for (let i = 1; i <= TOTAL; i++) {
                 const card = document.createElement('div');
                 card.className = 'card';
                 
-                // 序号标签（圆角）
+                // 序号
                 const indexSpan = document.createElement('span');
                 indexSpan.className = 'index';
                 indexSpan.textContent = i;
                 card.appendChild(indexSpan);
                 
-                // 图片 - 使用 contain 保证完整显示
+                // 图片 - 先不设置src，稍后分批加载
                 const img = document.createElement('img');
-                img.src = `images/${i}.jpg`;  // 从本地images文件夹读取
+                img.dataset.src = `images/${i}.jpg`;  // 把地址存在data属性
                 img.alt = `安生-${i}`;
-                img.loading = 'lazy';
+                img.className = 'pending';  // 标记为待加载
                 
-                // 图片加载失败时的简单处理
+                // 加载完成处理
+                img.onload = function() {
+                    this.classList.add('loaded');
+                    loadedCount++;
+                    statusDiv.textContent = `加载中... ${loadedCount}/${TOTAL}`;
+                    
+                    if (loadedCount === TOTAL) {
+                        statusDiv.textContent = `✅ 全部加载完成 ${TOTAL}/${TOTAL}`;
+                        setTimeout(() => {
+                            statusDiv.style.opacity = '0';
+                        }, 2000);
+                    }
+                };
+                
                 img.onerror = function() {
                     this.style.background = '#f0f0f0';
-                    // 可以添加一个简单的文字提示，或者保持空白
+                    loadedCount++;
+                    statusDiv.textContent = `加载中... ${loadedCount}/${TOTAL}`;
                 };
                 
                 card.appendChild(img);
                 gallery.appendChild(card);
             }
             
-            console.log(`已加载 ${TOTAL} 张本地图片，使用 contain 完整显示`);
+            // 获取所有待加载图片
+            const pendingImages = document.querySelectorAll('img.pending');
+            
+            // 分批加载函数
+            function loadImagesInBatches(start, batchSize) {
+                if (start >= pendingImages.length) return;
+                
+                const end = Math.min(start + batchSize, pendingImages.length);
+                
+                // 加载当前批次
+                for (let i = start; i < end; i++) {
+                    const img = pendingImages[i];
+                    img.src = img.dataset.src;  // 设置真实地址，开始加载
+                }
+                
+                // 下一批次延迟一点再加载，避免阻塞
+                setTimeout(() => {
+                    loadImagesInBatches(end, batchSize);
+                }, 50);  // 50毫秒延迟，让浏览器有时间处理
+            }
+            
+            // 开始加载：第一批20张，后续每批20张
+            loadImagesInBatches(0, 20);
+            
         })();
     </script>
 </body>
